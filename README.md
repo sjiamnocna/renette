@@ -1,19 +1,19 @@
 # React - Nette framework API
 
-Trying to effectively use Nette/Framework on backend (/server directory)
+- Complete setup of tools for communication within PHP Nette Framework based app and React/Webpack application with needed AJAX security (Request Authentication)
 
-/server is git@github.com:sjiamnocna/nette-minimal.git
+- Proxy pass for local development (query starts with api/ to distinguish local project files)
 
-Api calls looks like
+- Trying to effectively use Nette/Framework on backend (/server directory) as REST like service with as least components as possible
 
-```APICall({
-        resource: 'user',
-        action: 'login',
-        id: 42,
-        data: {
-            'username': 'ahoj',
-            'password': '12345'
-        }
-})```
+- Tracy is working and showing TracyBar and even error if it occurs
 
-causes calling to `${proxysite}/api/user/login/42` with `body: JSON.stringify(data)`
+- /server is submodule git@github.com:sjiamnocna/nette-minimal.git
+
+- Made for development on Linux as it's the best choice for developper
+
+- On Windows, try use WSL2
+
+Clone and get it running by running `yarn` and `cd server/; composer install`
+
+Start both server and local React app (CRA) using `yarn start` in the main directory
