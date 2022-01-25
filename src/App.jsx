@@ -1,7 +1,7 @@
 import { Button, ButtonGroup, Container } from '@mui/material'
 import React from 'react'
 import './App.css'
-import CallAPI from './helper/api/api'
+import API from './helper/api/api'
 
 /**
  * API class
@@ -19,18 +19,18 @@ const App = class extends React.PureComponent {
   render() {
     const APIinit = e => {
       this.setState({ hello: 'Authenticating request...' })
-      CallAPI.api_init(res => {
+
+      API.authenticateWithName('testing')
+      .then(res => {
+        console.log(res);
         if (res) {
-          this.setState({ apiReady: true })
-        } else {
-          this.setState({ error: true })
-        }
-      }).then(res => {
-        console.log(res)
-        if (typeof res === 'string' && res.length === 32) {
           this.setState({
             apiReady: true,
-            hello: 'Done'
+            hello: 'Authenticated'
+          })
+        } else {
+          this.setState({
+            error: true
           })
         }
       })
@@ -38,10 +38,27 @@ const App = class extends React.PureComponent {
 
     const APIAuth = e => {
       this.setState({hello: 'Authorizing service'})
-      CallAPI.api_authorize().then(res => {
-        this.setState({hello: 'Authorized! Congrats'})
-        console.log(res)
+
+      API.authorizeWithKey('abcdef')
+      .then(res => {
+        console.log('authorize', res)
+
+        this.setState({
+          hello: 'Authorized! Congrats',
+          apiAuthorized: true
+        })
       })
+    }
+
+    const getHello = e => {
+      if (this.state.apiAuthorized){
+        API.get({
+          resource: 'hello'
+        }).then(res => res.json())
+        .then(res => {
+          this.setState({hello: res.hello})
+        })
+      }
     }
 
     return (
@@ -54,7 +71,9 @@ const App = class extends React.PureComponent {
             <Button onClick={APIAuth} disabled={!this.state.apiReady && !this.state.apiAuthorized}>
               Authorize
             </Button>
-            <Button onClick={() => this.setState({ hello: 'Hello world!' })}>
+            <Button
+              onClick={getHello}
+              disabled={!this.state.apiAuthorized}>
               Get hello
             </Button>
             <div className=''>
