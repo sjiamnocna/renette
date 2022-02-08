@@ -131,6 +131,13 @@ class CAPI {
         })
     }
 
+    async connectionClose(){
+        this.post({
+            resource: 'Chk',
+            action: 'connectionClose',
+        })
+    }
+
     async get(param) {
         param.method = 'GET'
 

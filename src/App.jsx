@@ -3,6 +3,8 @@ import React from 'react'
 import './App.css'
 import API from './helper/api/api'
 
+import SignIn from './example/SignIn/SignIn'
+
 /**
  * API class
  * - Request Authentication
@@ -11,22 +13,17 @@ import API from './helper/api/api'
  */
 const App = class extends React.PureComponent {
   state = {
-    hello: null,
     apiReady: false,
     apiAuthorized: false
   }
 
-  render() {
-    const APIinit = e => {
-      this.setState({ hello: 'Authenticating request...' })
-
-      API.authenticateWithName('testing')
+  componentDidMount() {
+    API.authenticateWithName('testing')
       .then(res => {
         console.log(res);
         if (res) {
           this.setState({
-            apiReady: true,
-            hello: 'Authenticated'
+            apiReady: true
           })
         } else {
           this.setState({
@@ -34,12 +31,9 @@ const App = class extends React.PureComponent {
           })
         }
       })
-    }
-
-    const APIAuth = e => {
-      this.setState({hello: 'Authorizing service'})
-
-      API.authorizeWithKey('abcdef')
+      .then(() => {
+        return API.authorizeWithKey('abcdef')
+      })
       .then(res => {
         console.log('authorize', res)
 
@@ -48,40 +42,34 @@ const App = class extends React.PureComponent {
           apiAuthorized: true
         })
       })
-    }
+  }
 
-    const getHello = e => {
-      if (this.state.apiAuthorized){
-        API.get({
-          resource: 'hello'
-        }).then(res => res.json())
-        .then(res => {
-          this.setState({hello: res.hello})
-        })
-      }
-    }
+  componentWillUnmount(){
+    API.connectionClose()
+  }
 
+  getHello = e => {
+    API.get({
+      resource: 'hello'
+    }).then(res => res.json())
+      .then(res => {
+        this.setState({ hello: res.hello })
+      })
+  }
+
+  wrongCall = e => {
+    API.post({
+      resource: 'hello',
+      action: 'blablabla'
+    })
+    .then(res => {
+      console.log(res);
+    })
+  }
+
+  render() {
     return (
-      <div>
-        <Container className='mt-3'>
-          <ButtonGroup>
-            <Button onClick={APIinit} disabled={this.state.apiReady}>
-              Init
-            </Button>
-            <Button onClick={APIAuth} disabled={!this.state.apiReady && !this.state.apiAuthorized}>
-              Authorize
-            </Button>
-            <Button
-              onClick={getHello}
-              disabled={!this.state.apiAuthorized}>
-              Get hello
-            </Button>
-            <div className=''>
-              {this.state.hello}
-            </div>
-          </ButtonGroup>
-        </Container>
-      </div>
+      <SignIn />
     )
   }
 }
