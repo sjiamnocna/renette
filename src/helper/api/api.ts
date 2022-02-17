@@ -1,3 +1,5 @@
+import { API_config, API_fetch_param, API_props } from "./types"
+
 class CAPI {
     /**
      * @var bool    Locked for initialization
@@ -6,30 +8,34 @@ class CAPI {
      * @var string  API Base URI
      * 
      */
-    __props = {
+    __props: API_props = {
         busy: false,
         authorized: false,
-        accessKey: null,
+        accessKey: '',
     }
 
-    __config = {
+    __config: API_config = {
         apiUri: '/api',
-        allowedMethod: ['POST', 'GET', 'PUT', 'DELETE'],
-        defaultHeaders: {
+        allowedMethod: ['POST', 'GET'],
+        defaultHeaders: new Headers({
             'X-Requested-With': 'XMLHttpRequest',
             'content-type': 'application/json',
-        }
+        })
     }
 
-    get isAuthenticated() {
+    get accessKey(): (null | string) {
         return this.__props.accessKey
     }
 
-    get isAuthorized() {
+    get isAuthenticated(): boolean {
+        return (this.__props.accessKey !== null)
+    }
+
+    get isAuthorized(): boolean {
         return this.__props.authorized
     }
 
-    setConfig(config) {
+    setConfig(config: API_config): void {
         if (typeof config !== 'object') {
             throw Error('Config must be object')
         }
@@ -44,8 +50,8 @@ class CAPI {
      * Authenticate session
      * @param function Function after the work is done
      */
-    async authenticateWithName(serviceName) {
-        return new Promise((resolve, reject) => {
+    async authenticateWithName(serviceName: string): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
             if (this.__props.busy) {
                 reject('API is preparing, wait')
             }
@@ -59,9 +65,9 @@ class CAPI {
             this.post({
                 resource: 'Chk',
                 action: 'init',
-                headers: {
+                headers: new Headers({
                     'X-Service-Name': serviceName
-                }
+                })
             })
                 .then(res => res.json())
                 .then(res => {
@@ -69,22 +75,20 @@ class CAPI {
 
                     const accessKey = res.accessKey
 
-                    console.log('authentication', accessKey)
-
                     if (accessKey && typeof accessKey === 'string' && accessKey.length === 32) {
                         this.__props.accessKey = accessKey
-                        this.__config.defaultHeaders['X-Access-Key'] = accessKey
+                        this.__config.defaultHeaders.set('X-Access-Key', accessKey)
                         resolve(accessKey)
                     } else {
                         reject('Something went wrong with access key')
                     }
                 })
         }).finally(() => {
-            this.busy = false
+            this.__props.busy = false
         })
     }
 
-    async authorizeWithKey(serviceKey) {
+    async authorizeWithKey(serviceKey: string) {
         return new Promise((resolve, reject) => {
             if (this.__props.busy) {
                 reject('API is preparing, wait')
@@ -105,21 +109,19 @@ class CAPI {
             this.post({
                 resource: 'Chk',
                 action: 'authorize',
-                headers: {
+                headers: new Headers({
                     'X-Access-Key': this.__props.accessKey,
                     'X-Service-Key': serviceKey,
-                }
+                })
             })
                 .then(res => res.json())
                 .then(res => {
                     this.__props.busy = false
                     const accessKey = res.accessKey
 
-                    console.log('authorization', res)
-
                     if (accessKey && typeof accessKey === 'string' && accessKey.length === 32) {
                         this.__props.accessKey = accessKey
-                        this.__config.defaultHeaders['X-Access-Key'] = accessKey
+                        this.__config.defaultHeaders.set('X-Access-Key', accessKey)
                         resolve(accessKey)
                     } else {
                         console.log('reject', res);
@@ -127,18 +129,18 @@ class CAPI {
                     }
                 })
         }).finally(() => {
-            this.busy = false
+            this.__props.busy = false
         })
     }
 
-    async connectionClose(){
+    connectionClose(): void{
         this.post({
             resource: 'Chk',
             action: 'connectionClose',
         })
     }
 
-    async get(param) {
+    async get(param: API_fetch_param) {
         param.method = 'GET'
 
         if (param.data) {
@@ -149,7 +151,7 @@ class CAPI {
         return this.__fetch(param)
     }
 
-    async post(param) {
+    async post(param: API_fetch_param) {
         param.method = 'POST'
 
         return this.__fetch(param)
@@ -161,21 +163,24 @@ class CAPI {
     *  'resource'  string  (reqired)
     *  'action'    string  if not set, default action is used
     *  'id'        int     resource id
-    *  'method'    HTTP2   REST method ['GET', 'PUT', 'DELETE', 'PATCH'] (POST is default)
+    *  'method'    HTTP2   REST method ['GET', 'PUT'] (POST is default)
     *  'headers'   Object  Key => Value pairs
     *  'data'      Object  Key => Value pairs, data used to create request body
     * @returns promise
     */
-    async __fetch(param) {
+    async __fetch(param: API_fetch_param) {
         const { resource, action, id } = param
-        const method = this.__config.allowedMethod.includes(param.method) ? param.method : 'GET'
+        const method: string = param.method && this.__config.allowedMethod.includes(param.method) ? String(param.method) : 'GET'
         const path = `${this.__config.apiUri}/${resource}` + (action ? `/${action}` : '') + (id ? `/${id}` : '')
-        const headers = {
-            ...this.__config.defaultHeaders,
-            ...param.headers
-        }
+        
+        const headers = this.__config.defaultHeaders;
 
-        const fetchParam = {
+        // merge headers
+        param.headers && param.headers.forEach((value, name) => {
+            headers.set(name, value)
+        })
+
+        const fetchParam: RequestInit = {
             method: method,
             headers: headers,
             body: method !== 'GET' ? // if request is GET, body is not allowed
