@@ -1,5 +1,6 @@
 export interface API_props {
-    busy: boolean,
+    preparing: Promise<any> | false,
+    authenticated: boolean,
     authorized: boolean,
     accessKey: string
 }

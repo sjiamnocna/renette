@@ -6,10 +6,10 @@ class CAPI {
      * @var string  Access key to use to authenticate each request
      * @var bool    If the API is authorized via key or not
      * @var string  API Base URI
-     * 
      */
     __props: API_props = {
-        busy: false,
+        preparing: false,
+        authenticated: false,
         authorized: false,
         accessKey: '',
     }
@@ -23,18 +23,17 @@ class CAPI {
         })
     }
 
-    get accessKey(): (null | string) {
-        return this.__props.accessKey
-    }
-
+    /** the session is authenticated via access key */
     get isAuthenticated(): boolean {
-        return (this.__props.accessKey !== null)
+        return Boolean(this.__props.accessKey)
     }
 
+    /** the session is authorized via service name and key */
     get isAuthorized(): boolean {
         return this.__props.authorized
     }
 
+    /** Configuration of the module */
     setConfig(config: API_config): void {
         if (typeof config !== 'object') {
             throw Error('Config must be object')
@@ -47,20 +46,22 @@ class CAPI {
     }
 
     /**
-     * Authenticate session
+     * Authenticate session with service name
      * @param function Function after the work is done
      */
     async authenticateWithName(serviceName: string): Promise<string> {
-        return new Promise<string>((resolve, reject) => {
-            if (this.__props.busy) {
-                reject('API is preparing, wait')
+        // must be unique process
+        if (this.__props.preparing){
+            throw Error('Cant have another authentication')
+        }
+
+        return this.__props.preparing = new Promise<string>((resolve, reject) => {
+            if (this.__props.authenticated) {
+                reject('API already authenticated')
             }
             if (this.isAuthenticated) {
                 reject('API already authenticated')
             }
-
-            // block another initializations while working
-            this.__props.busy = true
 
             this.post({
                 resource: 'Chk',
@@ -71,7 +72,7 @@ class CAPI {
             })
                 .then(res => res.json())
                 .then(res => {
-                    this.__props.busy = false
+                    this.__props.authenticated = false
 
                     const accessKey = res.accessKey
 
@@ -84,13 +85,17 @@ class CAPI {
                     }
                 })
         }).finally(() => {
-            this.__props.busy = false
+            this.__props.authenticated = false
         })
     }
 
-    async authorizeWithKey(serviceKey: string) {
-        return new Promise((resolve, reject) => {
-            if (this.__props.busy) {
+    /** Authorizes current service with service key */
+    async authorizeWithKey(serviceKey: string): Promise<any> {
+        // wait until the authentication completes
+        await this.__props.preparing;
+
+        return this.__props.preparing = new Promise((resolve, reject) => {
+            if (this.__props.authenticated) {
                 reject('API is preparing, wait')
             }
             if (this.__props.authorized) {
@@ -103,9 +108,6 @@ class CAPI {
                 reject('serviceKey must be present')
             }
 
-            // block another initializations while working
-            this.__props.busy = true
-
             this.post({
                 resource: 'Chk',
                 action: 'authorize',
@@ -116,23 +118,23 @@ class CAPI {
             })
                 .then(res => res.json())
                 .then(res => {
-                    this.__props.busy = false
+                    this.__props.authenticated = false
                     const accessKey = res.accessKey
 
                     if (accessKey && typeof accessKey === 'string' && accessKey.length === 32) {
                         this.__props.accessKey = accessKey
                         this.__config.defaultHeaders.set('X-Access-Key', accessKey)
+                        this.__props.authenticated = true;
                         resolve(accessKey)
                     } else {
                         console.log('reject', res);
                         reject('Something went wrong with access key')
                     }
                 })
-        }).finally(() => {
-            this.__props.busy = false
         })
     }
 
+    /** Close connection */
     connectionClose(): void{
         this.post({
             resource: 'Chk',
@@ -140,7 +142,14 @@ class CAPI {
         })
     }
 
-    async get(param: API_fetch_param) {
+
+    /**
+     * Get request
+     * @param param Fetch arguments except data (only for POST)
+     * @returns promise
+     */
+    async get(param: API_fetch_param): Promise<any> {
+
         param.method = 'GET'
 
         if (param.data) {
@@ -151,7 +160,13 @@ class CAPI {
         return this.__fetch(param)
     }
 
-    async post(param: API_fetch_param) {
+    /**
+     * Post request
+     * @param param Fetch arguments
+     * @returns promise
+     */
+    async post(param: API_fetch_param): Promise<any> {
+
         param.method = 'POST'
 
         return this.__fetch(param)
@@ -168,7 +183,12 @@ class CAPI {
     *  'data'      Object  Key => Value pairs, data used to create request body
     * @returns promise
     */
-    async __fetch(param: API_fetch_param) {
+    async __fetch(param: API_fetch_param, ): Promise<any> {
+        // wait until the authentication completes
+        if (this.__props.preparing){
+            await this.__props.preparing;
+        }
+        
         const { resource, action, id } = param
         const method: string = param.method && this.__config.allowedMethod.includes(param.method) ? String(param.method) : 'GET'
         const path = `${this.__config.apiUri}/${resource}` + (action ? `/${action}` : '') + (id ? `/${id}` : '')

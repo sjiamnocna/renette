@@ -42,34 +42,39 @@ const App = class extends React.PureComponent {
           apiAuthorized: true
         })
       })
+      .then(() => {
+        API.get({
+          resource: 'getUser',
+          action: 'isLogged'
+        })
+          .then(res => console.log(res))
+      })
   }
 
   componentWillUnmount(){
     API.connectionClose()
   }
+  
+  handleSubmit = async (e) => {
+    e.preventDefault();
 
-  getHello = e => {
-    API.get({
-      resource: 'hello'
-    }).then(res => res.json())
-      .then(res => {
-        this.setState({ hello: res.hello })
-      })
-  }
+    const formData = new FormData(e.target)
 
-  wrongCall = e => {
-    API.post({
-      resource: 'hello',
-      action: 'blablabla'
+    await API.post({
+      resource: 'getUser',
+      action: 'login',
+      data: {
+        email: formData.get('email'),
+        password: formData.get('password'),
+      }
     })
-    .then(res => {
-      console.log(res);
-    })
-  }
+  };
 
   render() {
     return (
-      <SignIn />
+      <SignIn
+        onSubmit={this.handleSubmit}
+      />
     )
   }
 }
